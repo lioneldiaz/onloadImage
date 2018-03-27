@@ -4,6 +4,55 @@ import photo from './image.jpg'
 import FaTimesCircle from 'react-icons/lib/fa/times-circle'
 import './App.css'
 
+/**
+ * @description Read file
+ */
+const readFileAsDataURL = (file) =>
+  new Promise(resolve => {
+    const reader = new FileReader()
+
+    reader.onload = (event) => {
+      resolve(event.target.result)
+    }
+
+    reader.readAsDataURL(file)
+  })
+/**
+ * @description Resize a image
+ * @param {string} imageURL 
+ * @param {HTMLElement} canvas 
+ * @param {number} max_size 
+ */
+const resizeImage = (imageURL, canvas, max_size) =>
+  new Promise(resolve => {
+    const image = new Image()
+
+    image.onload = () => {
+      const context = canvas.getContext('2d')
+
+      let width = image.width
+      let height = image.height
+
+      if (width > height && width > max_size) {
+        height *= max_size / width
+        width = max_size     
+      } else if (height > max_size) {
+        width *= max_size / height
+        height = max_size
+      }
+
+      canvas.width = width
+      canvas.height = height
+      context.clearRect(0, 0, canvas.width, canvas.height)
+
+      context.drawImage(image, 0, 0, image.width, image.height, 0, 0, width, height)
+
+      resolve(canvas.toDataURL('image/jpeg'))
+    }
+
+    image.src = imageURL
+  })
+
 class App extends Component {
   /**
    * @description Represent App
@@ -21,35 +70,7 @@ class App extends Component {
   closeWindow = () => {
     this.setState(() => ({show: false}))
     
-  }
-  /**
-   * @description Draw a image in the canva
-   */
-  draw = () => {
-    this.canvas = document.createElement('canvas')
-    this.canvas.setAttribute('id','oldCanvas')
-    document.getElementById('box').appendChild(this.canvas)
-    const ctx = this.canvas.getContext("2d")
-    this.img = new Image()
-    this.img.src = this.state.url
-    let max_size = 400
-    this.img.onload = () => {
-      let width = this.img.width
-      let height = this.img.height
-
-      if (width > height && width > max_size) {
-        height *= max_size / width
-        width = max_size     
-      } else if (height > max_size) {
-        width *= max_size / height
-        height = max_size
-      }
-
-      this.canvas.width = width
-      this.canvas.height = height     
-      ctx.drawImage(this.img, 0, 0, this.img.naturalWidth, this.img.naturalHeight, 0, 0, width, height)   
-    }
-  }
+  } 
   /**
    * @description Region to capture a part of the image
    */
@@ -74,7 +95,6 @@ class App extends Component {
         div.offsetTop - e.clientY
       ]
     }, true)
-
     document.addEventListener('mouseup', function() {
       isDown = false
     }, true)
@@ -93,21 +113,21 @@ class App extends Component {
   }
   
   afterOpenModal = () => {
-    this.draw()
+    this.canva.setAttribute('id','oldCanvas')
+    document.getElementById('box').appendChild(this.canva)
     this.drawRegion()
   }
   /**
    * @description Rotate image 180 degree
    */
   rotate = () => {
-    const ctx = this.canvas.getContext('2d')    
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    const ctx = this.canva.getContext('2d')
+    ctx.clearRect(0, 0, this.canva.width, this.canva.height)
     
-    ctx.translate(this.canvas.width/2,this.canvas.height/2)
+    ctx.translate(this.canva.width/2,this.canva.height/2)
     ctx.rotate(this.state.angle * Math.PI/180)
-    ctx.translate(-this.canvas.width/2,-this.canvas.height/2)
-    
-    ctx.drawImage(this.img, 0, 0, this.img.naturalWidth, this.img.naturalHeight, 0, 0, this.canvas.width, this.canvas.height)
+    ctx.translate(-this.canva.width/2,-this.canva.height/2)
+    ctx.drawImage(this.img, 0, 0, this.img.naturalWidth, this.img.naturalHeight, 0, 0, this.canva.width, this.canva.height)
   }
   getImage = () => {    
     /**
@@ -115,11 +135,13 @@ class App extends Component {
      */
     const v = document.getElementById('mark')
     let sx = parseInt(v.style.left.slice(0,-2))
-    let sy = parseInt(v.style.top.slice(0,-2))
+    let sy = parseInt(v.style.top.slice(0,-2)) - 35
+    console.log("SX ", sx)
+    console.log("SY ", sy)
     /**
      * @description To caught the image in the canava
      */
-    const ctx = this.canvas.getContext('2d')
+    const ctx = this.canva.getContext('2d')
     const imgData = ctx.getImageData(sx,sy,100,100)        
     /**
      * @description Create a new canva to insert in the child
@@ -147,6 +169,31 @@ class App extends Component {
       this.setState({save: false})
     }    
   }  
+  /**
+   * @description Invoke immediately after the component is inserted in the DOM.
+   */
+  componentDidMount () {    
+    this.canva = document.createElement('canvas')
+  }
+  /**
+   * @description Handle any change in the input
+   */
+  handleFileChange = (event) => {
+    const file = event.target.files[0]
+
+    if (file && file.type.match(/^image\//)) {
+      readFileAsDataURL(file).then(originalURL => {
+        resizeImage(originalURL, this.canva, 400).then(url => {
+          this.setState({ 
+            url,
+            show: true
+          })
+        })
+      })
+    } else {
+      this.setState({ url: '' })
+    }
+  }
   render() {
     if (this.state.show) {
       return (
@@ -154,20 +201,13 @@ class App extends Component {
           isOpen={this.state.show}
           onRequestClose={this.closeWindow}
           onAfterOpen={this.afterOpenModal}
-          style={{
-            top: '50%',
-            left: '50%',
-            right: '50%',
-            bottom: 'auto',
-            marginRight: '-50%',
-            transform: 'translate(-50%, -50%)'
-          }}
+          className="Modal"
           ariaHideApp={false}
         >
-          <div>
-            <div style={{float:'left'}}>Crop your picture</div>
-            <button className='icon-btn' style={{float:'right'}} onClick={this.closeWindow}>
-              <FaTimesCircle size={30}/>
+          <div className="modal-title">
+            <div style={{float:'left', color:'rgb(204, 204, 204)'}}>Crop your picture</div>
+            <button className="icon-btn" style={{float:'right'}} onClick={this.closeWindow}>
+              <FaTimesCircle size={30} style={{color:'gray'}}/>
             </button>
           </div>
           <div id="box"/>        
@@ -175,12 +215,22 @@ class App extends Component {
               <button onClick={this.getImage}>Save</button>
               <button onClick={this.rotate}>Rotate</button>
           </div>
-        </Modal>  
+        </Modal>
       )
     }
     return (
       <div>
-        <button onClick={this.showWindow}>Show</button>        
+        <input
+          type="file"
+          onChange={this.handleFileChange}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+          }}
+        />
         <div id="new" style={{marginLeft:100, marginTop:10}}></div>       
       </div>
     )
