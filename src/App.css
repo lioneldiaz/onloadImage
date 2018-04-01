@@ -1,37 +1,29 @@
-.App {
-  text-align: center;
+.flex-container {
+  display: flex;
+  flex-direction: column;
 }
-
-.App-logo {
-  animation: App-logo-spin infinite 20s linear;
-  height: 80px;
+.title {
+  display: flex;
+  border-bottom: 1px solid #CCCCCC;
+  padding: 5px;
 }
-
-.App-header {
-  background-color: #222;
-  height: 150px;
-  padding: 20px;
-  color: white;
+.button {
+  display: flex;
+  justify-content: space-around;
+  border-top: 1px solid #CCCCCC;
+  padding: 5px;
 }
-
-.App-title {
-  font-size: 1.5em;
+.div-title {
+  flex-grow: 8;
+  color: #3F4347;
 }
-
-.App-intro {
-  font-size: large;
+.box {
+  padding: 10px;
 }
-
-@keyframes App-logo-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .icon-btn {
   background: none;
   border: none;
 }
-
 .Modal {
   position: absolute;
   top: 40px;
@@ -41,10 +33,4 @@
   overflow: auto;
   border-radius: 4px;
   outline: none;
-  /* padding: 20px; */
-}
-
-.modal-title {
-  border-bottom-color: 1px solid rgb(204, 204, 204);
-  padding: 5px;
 }
