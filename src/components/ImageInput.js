@@ -1,7 +1,8 @@
 import React, { Component } from 'react'
+import PropTypes from 'prop-types'
 import Modal from 'react-modal'
 import FaTimesCircle from 'react-icons/lib/fa/times-circle'
-import { readFileAsDataURL, resizeImage } from '../utils/helpers'
+import { readFileAsDataURL, resizeImage, resizeToInput } from '../utils/helpers'
 import '../App.css'
 import { gray } from '../utils/colors'
 
@@ -18,7 +19,17 @@ class ImageInput extends Component {
       save: false
     }
   }
-  showWindow = () => this.setState(() => ({show: true}))
+  /**
+   * @description Validate of the data types passed to the component
+   */
+  static propTypes = {
+    className: PropTypes.string,
+    name: PropTypes.string,
+    sizeInput: PropTypes.number.isRequired
+  }
+  /**
+   * @description Close the modal
+   */
   closeWindow = () => this.setState(() => ({show: false}))
     
   /**
@@ -32,18 +43,18 @@ class ImageInput extends Component {
     div.setAttribute('id','mark')
     div.style.position = 'absolute'
     div.style.left = '10px'
-    div.style.top = '47px'
+    div.style.top = '50px'
     div.style.border ='1px solid white'
     div.style.borderStyle = 'dashed'
 
     let canva = this.canva
     if (canva.offsetHeight >= canva.offsetWidth) {
-      div.style.width = canva.offsetWidth + 'px'
-      div.style.height = canva.offsetWidth + 'px'
+      div.style.width = `${canva.offsetWidth}px`
+      div.style.height = `${canva.offsetWidth}px`
     }
     else {
-      div.style.width = canva.offsetHeight + 'px'
-      div.style.height = canva.offsetHeight + 'px'
+      div.style.width = `${canva.offsetHeight}px`
+      div.style.height = `${canva.offsetHeight}px`
     }
     
     document.getElementById('box').appendChild(div)    
@@ -68,16 +79,15 @@ class ImageInput extends Component {
         }
         let left = mousePosition.x + offset[0]
         let top = mousePosition.y + offset[1]
-        div.style.left = left + 'px'
-        div.style.top = top + 'px'        
+        div.style.left = `${left}px`
+        div.style.top = `${top}px`        
       }     
     }, true)
   }
   /**
    * @description Invoke immediately after Modal is load
    */
-  afterOpenModal = () => {
-    this.canva.setAttribute('id','oldCanvas')    
+  afterOpenModal = () => { 
     document.getElementById('box').appendChild(this.canva)
     this.drawRegion()
   }
@@ -88,32 +98,23 @@ class ImageInput extends Component {
     const { width, height } = this.canva
     const context = this.canva.getContext('2d')
     const image = context.getImageData(0,0, width, height)
-    context.clearRect(0, 0, width, height)    
+    context.clearRect(0, 0, width, height) 
     context.translate(width/2, height/2)
-    context.rotate(this.state.angle * Math.PI/180)
+    context.rotate(180 * Math.PI/180)
     context.translate(-width/2, -height/2)
     context.putImageData(image, 0, 0)
     context.drawImage(this.canva, 0, 0, width, height, 0, 0, width, height)
   }
   /**
-   * @description Resize image to the measure of the input
-   * @param {HTMLElement} canvaImage
-   * @param {Object} measure
+   * @description Get a specific part of the image
    */
-  resizeToInput = (canvaImage, {...measure}) => {
-    this.ncanvas = document.createElement('canvas')
-    this.ncanvas.setAttribute('id','newImage')
-    const context = this.ncanvas.getContext('2d')
-    context.drawImage(canvaImage,measure.sx,measure.sy,measure.divWidth,measure.divHeight,0,0,100,100)
-  }
-  
   getImage = () => {    
     /**
      * @description Take the coordinates of the image
-     */
+     */    
     const v = document.getElementById('mark')
-    let sx = parseInt(v.style.left.slice(0,-2))
-    let sy = parseInt(v.style.top.slice(0,-2)) - 35
+    let sx = parseInt(v.style.left.slice(0,-2)) - 10
+    let sy = parseInt(v.style.top.slice(0,-2)) - 50
     /**
      * @description To caught the image in the canava
      */
@@ -124,61 +125,62 @@ class ImageInput extends Component {
 
     const imgData = ctx.getImageData(sx,sy,divWidth,divHeight)
     
-    /**
-     * @description Create a new canva to insert in the child
-     */
-    const newCanva = document.createElement('canvas')
-
-    const context = newCanva.getContext('2d')
-
-    newCanva.width = divWidth
-    newCanva.height = divHeight
-
-    context.putImageData(imgData, 0, 0)
-    this.resizeToInput(newCanva, {sx, sy, divWidth, divHeight})
+    ctx.clearRect(0, 0, this.canva.offsetWidth, this.canva.offsetHeight)
+    this.canva.width = divWidth
+    this.canva.height = divHeight
+    
+    ctx.putImageData(imgData, 0, 0)
+    resizeToInput(this.canva, {divWidth, divHeight}, this.props.sizeInput)
+      .then(url => {
+        this.setState(() => ({url}))
+      })
 
     this.setState(() => ({save: true})) 
     this.closeWindow()
   }
-  /**
-   *@description Invoke immediately after updating occurs 
-   */
-  componentDidUpdate () {
-    if (!this.state.show && this.state.save) {
-      const child = document.getElementById('new')     
-      if (child.lastChild !== null)
-        child.removeChild(document.getElementById('newImage'))
-      child.appendChild(this.ncanvas)
-      this.setState({save: false})
-    }    
-  }  
+
+  handleFormReset = () => {
+    this.setState(() => ({url: ''}))
+  }
   /**
    * @description Invoke immediately after the component is inserted in the DOM.
    */
   componentDidMount () {    
     this.canva = document.createElement('canvas')
+    this.fileInput.form.addEventListener('reset', this.handleFormReset) 
+  }
+  componentWillUnmount () {
+    this.fileInput.form.removeEventListener('reset', this.handleFormReset)
   }
   /**
    * @description Handle any change in the input
    */
   handleFileChange = (event) => {
     const file = event.target.files[0]
-
     if (file && file.type.match(/^image\//)) {
       readFileAsDataURL(file).then(originalURL => {
-        resizeImage(originalURL, this.canva, 400).then(url => {
-          this.setState({ 
-            url,
+        resizeImage(originalURL, this.canva, 400).then(() => {
+          this.setState({
             show: true
           })
         })
       })
     } else {
-      this.setState({ url: '' })
+      this.setState(() => ({ url: '' }))
     }
   }
   render() {
-    const {show}=this.state
+    const { className, name } = this.props
+    const { show, url } = this.state
+    const style = {
+      position: 'relative'      
+    }
+    if (url) {
+      style.backgroundImage = `url("${url}")`
+      style.backgroundRepeat = 'no-repeat'
+      style.backgroundPosition = 'center'
+      style.backgroundSize = 'cover'
+    }
     if (show) {
       return (
         <Modal
@@ -186,6 +188,7 @@ class ImageInput extends Component {
           onRequestClose={this.closeWindow}
           onAfterOpen={this.afterOpenModal}
           className="Modal"
+          overlayClassName='overlay'
           ariaHideApp={false}
         >
         <div id="container" className="flex-container">
@@ -197,7 +200,7 @@ class ImageInput extends Component {
               </button>
             </div>
           </div>
-          <div id="box" className="box"/>     
+          <div id="box" className="box" />     
           <div id="button" className="button">
             <button onClick={this.getImage}>
               Save
@@ -211,8 +214,10 @@ class ImageInput extends Component {
       )
     }
     return (
-      <div>
+      <div className={className} style={style}>
+        <input type="hidden" name={name} value={url} />
         <input
+          ref={node => this.fileInput = node}
           type="file"
           onChange={this.handleFileChange}
           style={{
@@ -221,9 +226,9 @@ class ImageInput extends Component {
             left: 0,
             width: '100%',
             height: '100%',
+            opacity: 0
           }}
         />
-        <div id="new" style={{marginLeft:100, marginTop:10}}></div>       
       </div>
     )
   }

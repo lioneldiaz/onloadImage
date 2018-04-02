@@ -26,14 +26,9 @@ export const resizeImage = (imageURL, canvas, max_size) =>
       let width = image.width
       let height = image.height
 
-      if (width > height && width > max_size) {
-        height *= max_size / width
-        width = max_size     
-      } else if (height > max_size) {
-        width *= max_size / height
-        height = max_size
-      }
-
+      height *= max_size / width
+      width = max_size
+      
       canvas.width = width
       canvas.height = height
       context.clearRect(0, 0, canvas.width, canvas.height)
@@ -44,3 +39,21 @@ export const resizeImage = (imageURL, canvas, max_size) =>
     }
     image.src = imageURL
   })
+
+/**
+ * @description Resize image to the measure of the input
+ * @param {HTMLElement} canvaImage
+ * @param {Object} measure
+ */
+export const resizeToInput = (canvaImage, {...measure}, sizeInput) =>
+  new Promise(resolve => {
+    const { divWidth, divHeight } = measure
+    this.canvas = document.createElement('canvas')
+    this.canvas.setAttribute('id','newImage')
+    this.canvas.style.borderRadius = '3px'
+    this.canvas.width = sizeInput
+    this.canvas.height = sizeInput
+    const context = this.canvas.getContext('2d')
+    context.drawImage(canvaImage, 0, 0, divWidth, divHeight, 0, 0, sizeInput, sizeInput)     
+    resolve (this.canvas.toDataURL('image/jpeg'))
+  }) 
